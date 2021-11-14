@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 import scipy.linalg as spla
 import time
 from utils import Newton_step
@@ -307,7 +308,7 @@ def kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=10
     M_kkt[-2*m:-m, -m:] = np.eye(m)
 
     # Compute initial values
-    r_L, r_A, r_C, r_s, rh_vector = solve_system(G, A, C, x, g, b, d, gamma, lamb, s)
+    r_L, r_A, r_C, r_s, rh_vector = solve_full_system(G, A, C, x, g, b, d, gamma, lamb, s)
     mu = np.dot(s, lamb) / m
 
     while np.linalg.norm(r_L) >= tol and np.linalg.norm(r_A) >= tol and np.linalg.norm(r_C) >= tol and np.linalg.norm(mu) >= tol and i < max_iter:
@@ -349,13 +350,136 @@ def kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=10
         M_kkt[-m:, -2*m:-m] = np.diagflat(s)
         M_kkt[-m:, -m:] = np.diagflat(lamb)
 
-        r_L, r_A, r_C, r_s, rh_vector = solve_system(G, A, C, x, g, b, d, gamma, lamb, s)
+        r_L, r_A, r_C, r_s, rh_vector = solve_full_system(G, A, C, x, g, b, d, gamma, lamb, s)
 
         mu = np.dot(s, lamb) / m
 
     total_t = time.time() - start_t
 
     return x, i, total_t, condition_numbers
+
+
+def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=100, tol=1e-16, cond_num=False):
+    # Copy initial values (these will be modified later on)
+    x = np.copy(x_0)
+    gamma = np.copy(gamma_0)
+    lamb = np.copy(lamb_0)
+    s = np.copy(s_0)
+
+    # Get dimensions
+    n, m = C.shape
+    p = A.shape[1]
+    N = n + p + m
+
+    # Define values used in the algorithm
+    e = np.ones(m)
+    FACTOR = 0.95
+    i = 0
+    condition_numbers = []
+
+    start_t = time.time()
+
+    # Create M_kkt matrix
+    M_kkt = np.zeros((N, N))
+
+    M_kkt[:n, :n] = G
+    M_kkt[:n, n:-m] = -A
+    M_kkt[:n, -m:] = -C
+    M_kkt[n:-m, :n] = -A.T
+    M_kkt[-m:, :n] = -C.T
+
+    # Compute initial values
+    r_L, r_A, r_C, r_s, _ = solve_full_system(G, A, C, x, g, b, d, gamma, lamb, s)
+    mu = np.dot(s, lamb) / m
+
+    while np.linalg.norm(r_L) >= tol and np.linalg.norm(r_A) >= tol and np.linalg.norm(r_C) >= tol and np.linalg.norm(mu) >= tol and i < max_iter:
+        i += 1
+
+        # Compute variable part of M_kkt matrix
+        M_kkt[-m:, -m:] = -np.diagflat(s / lamb)
+        
+        # Compute LDL^T factorization
+        L_kkt, D_kkt, _ = spla.ldl(M_kkt)
+
+        # Compute condition number
+        if cond_num:
+            condition_numbers.append(np.linalg.cond(M_kkt))
+
+        # Step 1: Solve system
+        rh_vector = np.hstack((r_L, r_A, r_C - r_s / lamb))
+
+        y = np.linalg.solve(L_kkt, -rh_vector)
+        d_z = np.linalg.solve(np.dot(D_kkt, L_kkt.T), y)
+        d_x, d_gamma, d_lamb = d_z[:n], d_z[n:-m], d_z[-m:]
+        d_s = -(r_s + s * d_lamb) / lamb
+
+        # Step 2: Step-size correction substep
+        alpha = Newton_step(lamb, d_lamb, s, d_s)
+
+        # Step 3: Compute correctors
+        mu_tilda = np.dot(s + alpha * d_s, lamb + alpha * d_lamb) / m
+        sigma = (mu_tilda / mu) ** 3
+
+        # Step 4: Corrector substep
+        # The matrix multiplication D_s D_{\lambda} e can be substituted by the
+        # element-wise multiplication of d_s and d_{\lambda}
+        r_s = r_s + d_s * d_lamb - sigma * mu * e
+        rh_vector = np.hstack((r_L, r_A, r_C - r_s / lamb))
+
+        y = np.linalg.solve(L_kkt, -rh_vector)
+        d_z = np.linalg.solve(np.dot(D_kkt, L_kkt.T), y)
+        d_x, d_gamma, d_lamb = d_z[:n], d_z[n:-m], d_z[-m:]
+        d_s = -(r_s + s * d_lamb) / lamb
+
+        # Step 5: Step-size correction substep
+        alpha = Newton_step(lamb, d_lamb, s, d_s)
+
+        # Step 6: Update values and M_kkt matrix
+        x += FACTOR * alpha * d_x
+        gamma += FACTOR * alpha * d_gamma
+        lamb += FACTOR * alpha * d_lamb
+        s += FACTOR * alpha * d_s
+
+        r_L, r_A, r_C, r_s, _ = solve_full_system(G, A, C, x, g, b, d, gamma, lamb, s)
+
+        mu = np.dot(s, lamb) / m
+
+    total_t = time.time() - start_t
+
+    return x, i, total_t, condition_numbers
+
+
+def load_problem(problem_dir, n):
+    p = n // 2
+    m = n * 2
+
+    A_dad = np.loadtxt(f'{problem_dir}/A.dad' )
+    C_dad = np.loadtxt(f'{problem_dir}/C.dad' )
+    G_dad = np.loadtxt(f'{problem_dir}/G.dad' )
+    b_dad = np.loadtxt(f'{problem_dir}/b.dad' )
+    d_dad = np.loadtxt(f'{problem_dir}/d.dad' )
+    g_dad = np.loadtxt(f'{problem_dir}/g.dad' )
+
+    # Transform to numpy format
+    G = sp.sparse.coo_matrix((G_dad[:, 2], (G_dad[:, 0] - 1, G_dad[:, 1] - 1)), shape=(n, n)).toarray()
+    G = G + G.T - np.diag(G.diagonal())
+
+    A = sp.sparse.coo_matrix((A_dad[:, 2], (A_dad[:, 0] - 1, A_dad[:, 1] - 1)), shape=(n, p)).toarray()
+    C = sp.sparse.coo_matrix((C_dad[:, 2], (C_dad[:, 0] - 1, C_dad[:, 1] - 1)), shape=(n, m)).toarray()
+
+    b = np.zeros(p)
+    g = np.zeros(n)
+    d = np.zeros(m)
+    b[(b_dad[:,0]-1).astype(int)] = b_dad[:,1]
+    g[(g_dad[:,0]-1).astype(int)] = g_dad[:,1]
+    d[(d_dad[:,0]-1).astype(int)] = d_dad[:,1]
+
+    # Set z0
+    x_0 = np.zeros(n)
+    s_0, gamma_0, lamb_0 = np.ones(m), np.ones(p), np.ones(m)
+
+    return G, A, C, g, b, d, x_0, gamma_0, lamb_0, s_0
+
 
 n = 5
 m = 2 * n
@@ -380,6 +504,22 @@ print(f'LDL^t factorization solution: {x_sol}\tNum. iterations: {i}\tTime: {tota
 x_sol, i, total_t, condition_numbers = kkt_inequality_cholesky_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=False)
 print(f'Cholesky factorization solution: {x_sol}\tNum. iterations: {i}\tTime: {total_t}s')
 
-print('Condition numbers')
-print(condition_numbers)
+G, A, C, g, b, d, x_0, gamma_0, lamb_0, s_0 = load_problem('optpr1', 100)
 
+x_sol, i, total_t, condition_numbers = kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+f_sol = 0.5 * np.dot(x_sol.T, np.dot(G, x_sol)) + np.dot(g.T, x_sol)
+print(f'Linear system solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+
+x_sol, i, total_t, condition_numbers = kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+f_sol = 0.5 * np.dot(x_sol.T, np.dot(G, x_sol)) + np.dot(g.T, x_sol)
+print(f'LDL^t factorization solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+
+G, A, C, g, b, d, x_0, gamma_0, lamb_0, s_0 = load_problem('optpr2', 1000)
+
+x_sol, i, total_t, condition_numbers = kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+f_sol = 0.5 * np.dot(x_sol.T, np.dot(G, x_sol)) + np.dot(g.T, x_sol)
+print(f'Linear system solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+
+x_sol, i, total_t, condition_numbers = kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+f_sol = 0.5 * np.dot(x_sol.T, np.dot(G, x_sol)) + np.dot(g.T, x_sol)
+print(f'LDL^t factorization solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
