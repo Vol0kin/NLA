@@ -39,8 +39,6 @@ def kkt_inequality_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16,
     M_kkt[n:n+m, :n] = -C.T
     M_kkt[:n, n:n+m] = -C
 
-    M_kkt[-m:, n:n+m] = np.diagflat(s)
-    M_kkt[-m:, -m:] = np.diagflat(lamb)
     M_kkt[n:n+m, -m:] = np.eye(m)
 
     # Compute initial values
@@ -49,6 +47,10 @@ def kkt_inequality_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16,
 
     while np.linalg.norm(r_L) >= tol and np.linalg.norm(r_C) >= tol and np.linalg.norm(mu) >= tol and i < max_iter:
         i += 1
+
+        # Compute variable blocks of the matrix
+        M_kkt[-m:, n:n+m] = np.diagflat(s)
+        M_kkt[-m:, -m:] = np.diagflat(lamb)
 
         # Compute condition number
         if cond_num:
@@ -77,13 +79,10 @@ def kkt_inequality_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16,
         # Step 5: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
 
-        # Step 6: Update values and M_kkt matrix
+        # Step 6: Update values
         x += FACTOR * alpha * d_x
         lamb += FACTOR * alpha * d_lamb
-        s += FACTOR * alpha * d_s
-
-        M_kkt[-m:, n:n+m] = np.diagflat(s)
-        M_kkt[-m:, -m:] = np.diagflat(lamb)
+        s += FACTOR * alpha * d_s        
 
         r_L, r_C, r_s, rh_vector = solve_system(G, C, x, g, d, lamb, s)
 
@@ -127,9 +126,7 @@ def kkt_inequality_ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1
         i += 1
 
         # Compute variable block of the matrix
-        inv_diag_lamb = np.diagflat(1 / lamb)
-        diag_s = np.diagflat(s)
-        M_kkt[-m:, -m:] = -np.dot(inv_diag_lamb, diag_s)
+        M_kkt[-m:, -m:] = -np.diagflat(s / lamb)
 
         # Compute LDL^T factorization
         L_kkt, D_kkt, _ = spla.ldl(M_kkt)
@@ -142,12 +139,13 @@ def kkt_inequality_ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1
             condition_numbers.append(np.linalg.cond(np.dot(D_kkt, L_kkt.T)))
 
         # Step 1: Solve system
-        rh_vector = np.hstack((r_1, r_2 - np.dot(inv_diag_lamb, r_3)))
+        rh_vector = np.hstack((r_1, r_2 - r_3 / lamb))
 
         y = spla.solve_triangular(L_kkt, -rh_vector, lower=True)
-        d_z = spla.solve_triangular(np.dot(D_kkt, L_kkt.T), y)
+        u = y / D_kkt.diagonal()
+        d_z = spla.solve_triangular(L_kkt.T, u)
         d_x, d_lamb = d_z[:n], d_z[n:n+m]
-        d_s = np.dot(inv_diag_lamb, -r_3 - np.dot(diag_s, d_lamb))
+        d_s = (-r_3 - s * d_lamb) / lamb
 
         # Step 2: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
@@ -160,17 +158,18 @@ def kkt_inequality_ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1
         # The matrix multiplication D_s D_{\lambda} e can be substituted by the
         # element-wise multiplication of d_s and d_{\lambda}
         r_3 = r_3 + d_s * d_lamb - sigma * mu * e
-        rh_vector = np.hstack((r_1, r_2 - np.dot(inv_diag_lamb, r_3)))
+        rh_vector = np.hstack((r_1, r_2 - r_3 / lamb))
 
         y = spla.solve_triangular(L_kkt, -rh_vector, lower=True)
-        d_z = spla.solve_triangular(np.dot(D_kkt, L_kkt.T), y)
+        u = y / D_kkt.diagonal()
+        d_z = spla.solve_triangular(L_kkt.T, u)
         d_x, d_lamb = d_z[:n], d_z[n:n+m]
-        d_s = np.dot(inv_diag_lamb, -r_3 - np.dot(diag_s, d_lamb))
+        d_s = (-r_3 - s * d_lamb) / lamb
 
         # Step 5: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
 
-        # Step 6: Update values and M_kkt matrix
+        # Step 6: Update values
         x += FACTOR * alpha * d_x
         lamb += FACTOR * alpha * d_lamb
         s += FACTOR * alpha * d_s
@@ -249,7 +248,7 @@ def kkt_inequality_cholesky_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, t
         # Step 5: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
 
-        # Step 6: Update values and M_kkt matrix
+        # Step 6: Update values
         x += FACTOR * alpha * d_x
         lamb += FACTOR * alpha * d_lamb
         s += FACTOR * alpha * d_s
@@ -341,7 +340,7 @@ def kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=10
         # Step 5: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
 
-        # Step 6: Update values and M_kkt matrix
+        # Step 6: Update values
         x += FACTOR * alpha * d_x
         gamma += FACTOR * alpha * d_gamma
         lamb += FACTOR * alpha * d_lamb
@@ -397,7 +396,7 @@ def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_it
 
         # Compute variable part of M_kkt matrix
         M_kkt[-m:, -m:] = -np.diagflat(s / lamb)
-        
+
         # Compute LDL^T factorization
         L_kkt, D_kkt, _ = spla.ldl(M_kkt)
 
@@ -434,7 +433,7 @@ def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_it
         # Step 5: Step-size correction substep
         alpha = Newton_step(lamb, d_lamb, s, d_s)
 
-        # Step 6: Update values and M_kkt matrix
+        # Step 6: Update values
         x += FACTOR * alpha * d_x
         gamma += FACTOR * alpha * d_gamma
         lamb += FACTOR * alpha * d_lamb
