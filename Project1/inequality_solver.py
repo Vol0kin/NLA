@@ -358,6 +358,48 @@ def kkt_equality_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=10
     return x, i, total_t, condition_numbers
 
 
+def solve_block_diagonal(D, y, tol=1e-16):
+    n = D.shape[0]
+    i = 0
+    x = np.zeros_like(y)
+
+    while i < n - 1:
+        if max(abs(D[i, i+1]), abs(D[i+1, i])) < tol:
+            x[i] = y[i] / D[i, i]
+            i += 1
+        else:
+            x[i:i+2] = np.linalg.solve(D[i:i+2, i:i+2], y[i:i+2])
+            i += 2
+
+    x[i] = y[i] / D[i, i]
+    i += 1
+
+    return x
+
+
+def ldl_block_solver(L, D, perm, rh_vector):
+    n = L.shape[0]
+
+    # Create inverse permutation array
+    inv_perm = np.zeros_like(perm)
+    for i in range(n):
+        inv_perm[perm[i]] = i
+
+    # Permute L matrix and array
+    L = L[perm]
+    rh_vector = rh_vector[perm]
+
+    # Solve system
+    x = spla.solve_triangular(L, rh_vector, lower=True)
+    y = solve_block_diagonal(D, x)
+    z = spla.solve_triangular(L.T, y)
+
+    # Permute solution
+    z = z[inv_perm]
+
+    return z
+
+
 def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=100, tol=1e-16, cond_num=False):
     # Copy initial values (these will be modified later on)
     x = np.copy(x_0)
@@ -398,7 +440,7 @@ def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_it
         M_kkt[-m:, -m:] = -np.diagflat(s / lamb)
 
         # Compute LDL^T factorization
-        L_kkt, D_kkt, _ = spla.ldl(M_kkt)
+        L_kkt, D_kkt, perm = spla.ldl(M_kkt)
 
         # Compute condition number
         if cond_num:
@@ -407,8 +449,7 @@ def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_it
         # Step 1: Solve system
         rh_vector = np.hstack((r_L, r_A, r_C - r_s / lamb))
 
-        y = np.linalg.solve(L_kkt, -rh_vector)
-        d_z = np.linalg.solve(np.dot(D_kkt, L_kkt.T), y)
+        d_z = ldl_block_solver(L_kkt, D_kkt, perm, -rh_vector)
         d_x, d_gamma, d_lamb = d_z[:n], d_z[n:-m], d_z[-m:]
         d_s = -(r_s + s * d_lamb) / lamb
 
@@ -425,8 +466,7 @@ def kkt_equality_ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_it
         r_s = r_s + d_s * d_lamb - sigma * mu * e
         rh_vector = np.hstack((r_L, r_A, r_C - r_s / lamb))
 
-        y = np.linalg.solve(L_kkt, -rh_vector)
-        d_z = np.linalg.solve(np.dot(D_kkt, L_kkt.T), y)
+        d_z = ldl_block_solver(L_kkt, D_kkt, perm, -rh_vector)
         d_x, d_gamma, d_lamb = d_z[:n], d_z[n:-m], d_z[-m:]
         d_s = -(r_s + s * d_lamb) / lamb
 
