@@ -163,34 +163,209 @@ The first case that we are going to study is the KKT system without inequalities
 This allows us to represent the matrix $M_{\text{KKT}}$ as a $3 \times 3$ block
 matrix:
 
-\[
+\begin{equation}
+  \label{eq:3x3-kkt}
   M_{\text{KKT}} =
   \begin{pmatrix}
     G & -C & 0 \\
     -C^T & 0 & I \\
     0 & S & \Lambda
   \end{pmatrix}
-\]
+\end{equation}
+  
 
-There are some strategies that all
+
+There are some strategies that we can follow in order to solve the linear system of
+equations. First, we will start by discussing a \textit{naive} approach, and later on we will present
+some more advanced strategies that will allow us to solve the linear system faster.
 
 \subsection{Naive approach}
 
+The first approach that we are going to discuss is the one that we have called \textit{naive}. It
+is named this way because it is the first one that one can think of and is the most direct one.
+This method consists in solving the system using the \texttt{numpy.linalg.solve} function.
+This function uses one of \texttt{LAPACK}'s \texttt{gesv} routines, which basically solves the system
+by computing the LU factorization using GEPP under the hood.
+
+\noindent \textbf{C1, C2, C3:} To solve this exercises, we have defined a function called
+\texttt{lu\_solver} which can be found in the \texttt{kktsolvers/inequality.py} script.
+It uses the provided \texttt{Newton\_method} function to compute the step-size correction
+and one more function called \texttt{solve\_system} which computes $F(z_k)$.
+
+As we already know, this method is quite slow, since it solves the system with $\frac{2}{3}n^3 + \mathcal{O}(n^2)$
+flops. Moreover, it is used twice per iteration of the Newton's method, which means that
+the factorization has to be computed two times. This implies that big sized problems will take
+quite some time until they are solved. There are some improvements that can be made, like computing
+the LU factorization just once and storing it. However, it might be a better idea to explore
+other alternatives.
+
+Fortunately, we can make some changes to $M_{\text{MKKT}}$ matrix that will allow us to
+solve the problem faster.
+
 \subsection{Other strategies}
+
+In this section we are going to discuss two strategies that we can use to speed up
+the Newton's method.
+
+\subsubsection{$LDL^T$ factorization}
+
+The first strategy that we are going to talk about is the $LDL^T$ factorization. Given a symmetric
+matrix $A$, we can express this matrix as $A = LDL^T$, where $L$ is a unitriangular lower matrix and
+$D$ is a diagonal matrix. This method is faster than the LU factorization, it takes up less space (we
+only need to store one lower triangular and one diagonal matrix) and is more stable in general.
+
+\noindent \textbf{T2.1:} We can factorize our $M_{\text{KKT}}$ matrix provided that it is symmetric. In order to obtain one, we
+can perform some manipulations on it. From $\eqref{eq:3x3-kkt}$ we can obtain the following linear system:
+
+\begin{equation}
+  \begin{aligned}
+    G\delta_x - C\delta_{\lambda} &= -r_L \\
+    -C^T\delta_x + I\delta_s &= -r_C \\
+    S\delta_{\lambda} + \Lambda \delta s &= -r_s
+  \end{aligned}
+\end{equation}
+
+Now, if we isolate $\delta_s$ from the last equation, we get:
+
+\[
+  \delta_s = \Lambda^{-1}(-r_s - S\delta_{\lambda})
+\]
+
+Substituting in the second row we get:
+
+\begin{equation*}
+  \begin{aligned}
+    -C^T \delta_x + \Lambda^{-1}(-r_s - S\delta_{\lambda}) = -r_C \\
+    -C^T \delta_x - \Lambda^{-1}S\delta_{\lambda} = -r_C + \Lambda^{-1}r_s
+  \end{aligned}
+\end{equation*}
+
+This has the following matrix form:
+
+\begin{equation}
+  \begin{pmatrix}
+    G & -C \\
+    -C^T & -\Lambda^{-1}S
+  \end{pmatrix}
+  \begin{pmatrix}
+    \delta_x \\
+    \delta_{\lambda} \\
+  \end{pmatrix}
+  =
+  -
+ \begin{pmatrix}
+   r_L \\
+   r_C - \Lambda^{-1}r_s
+ \end{pmatrix}
+\end{equation}
+
+Since $G$ is a symmetric positive definite matrix, $C$ appears both in its normal
+forms and transposed, and the matrix product $-\Lambda^{-1}S$ is a diagonal (which
+is symmetric by definition), we can clearly see that this version of the $M_{\text{KKT}}$
+is also symmetric. Thus, the $LDL^T$ factorization can be applied to it.
+
+\noindent \textbf{C4.1:} In the \texttt{kktsolvers/inequality.py} script you can find the
+implementation of this exercise. The function is called \texttt{ldlt\_solver}. It computes
+the $LDL^T$ factorization of the $2 \times 2$ $M_{\text{KKT}}$ block matrix and then solves an
+upper triangular equation system using the \texttt{scipy.linalg.solve\_triangular} function,
+which is way faster than solving a whole system like we were doing before. Then, it divides
+the resulting vector by the diagonal matrix $D$, which has been implemented as an element-wise
+division between the result vector and the diagonal vector. Finally, it solves an upper triangular
+system, using this time $L^T$. This time, the factorization is only computed once and is stored
+so that it can be reused later, which allows us to save some time.
+
+\subsubsection{Cholesky factorization}
+
+The second strategy that we want to discuss is the Cholesky factorization. Given a symmetric
+positive definite matrix $A$, instead of computing its factorization as $A = LU$, we can compute
+it as $A = GG^T$, where $G$ is a lower triangular matrix whose diagonal is positive. Recalling
+the $LDL^T$ factorization, we had a lower unitriangular matrix $L$ and a diagonal matrix $D$.
+Since $A$ is SPD, its diagonal entries are positive. Thus, we can define
+$D = \text{diag}(\sqrt{d_1}, \dots, \sqrt{d_n})^2$, and from here we can
+derive that $G = L \times \text{diag}(\sqrt{d_1}, \dots, \sqrt{d_n})$.
+
+The Cholesky factorization performs better than the LU since it takes half the time to
+be computed, takes less space in memory (only one lower triangular matrix has to be stored)
+and is more stable in general, since it can be computed without pivoting, which allows
+us to get better solutions.
+
+\noindent \textbf{T2.2:} In order to apply the Cholesky factorization to our matrix, we have to
+perform some transformations so that it becomes symmetric and positive definite. Once again, we
+can obtain the following linear system from the expression $\eqref{eq:3x3-kkt}$:
+
+\begin{equation*}
+  \begin{gathered}
+    G\delta_x - C\delta_{\lambda} = -r_L \\
+    -C^T\delta_x + I\delta_s = -r_C \\
+    S\delta_{\lambda} + \Lambda \delta s = -r_s
+  \end{gathered}
+\end{equation*}
+
+Now, if we isolate $\delta_s$ in the second row, we get the following expression:
+
+\[
+  \delta_s = -r_C + C^T \delta_x
+\]
+
+Substituting $\delta_s$ in the third row we get:
+
+\begin{equation*}
+  \begin{gathered}
+    S\delta_{\lambda} + \Lambda(-r_C + C^T \delta_x) = -r_s \\
+    S\delta_{\lambda} - \Lambda r_C + \Lambda C^T \delta_x = -r_s \\
+    S\delta_{\lambda} = -r_s + \Lambda r_C - \Lambda C^T \delta_x \\
+    S\delta_{\lambda} = S^{-1}(-r_s + \Lambda r_C) - S^{-1}\Lambda C^T \delta_x
+  \end{gathered}
+\end{equation*}
+
+Substituting $\delta_{\lambda}$ into the first row we get:
+
+\begin{equation*}
+  \begin{gathered}
+    G\delta_x - C(S^{-1}(-r_s + \Lambda r_C) - S^{-1}\Lambda C^T \delta_x) = -r_L \\
+    G\delta_x - CS^{-1}(-r_s + \Lambda r_C) + CS^{-1}\Lambda C^T \delta_x = -r_L \\
+    G\delta_x + CS^{-1}\Lambda C^T \delta_x = -r_L + CS^{-1}(-r_s + \Lambda r_C) \\
+    (G + CS^{-1}\Lambda C^T) \delta_x = -r_L + CS^{-1}(-r_s + \Lambda r_C)
+  \end{gathered}
+\end{equation*}
+
+Let us define $\hat{G} = G + CS^{-1}\Lambda C^T$ and $\hat{r} = -CS^{-1}(-r_s + \Lambda r_C)$.
+Substituting in the previous expression we obtain the following system:
+
+\[
+  \hat{G} \delta_x = -r_L - \hat{r}
+\]
+
+We can apply the Cholesky factorization to the matrix $\hat{G}$ if it is SPD. We know that the matrix
+$G$ is SPD. If the product $CS^{-1}\Lambda C^T$ is also SPD, then we would have that $\hat{G}$
+is also SPD and it can be factorized using this method.
+
+\noindent \textbf{C4.2:} The \texttt{cholesky\_solver} function (found in the same file
+as the previous two) implements the Cholesky factorization and solves the system. The biggest
+difference regarding the previous ones is that here we don't use the $M_{\text{KKT}}$ matrix.
+Instead, we compute $\hat{G}$ and then compute its Cholesky factorization and replace its value
+(since its only used to compute the factorization). This allows us to save some extra space because
+we don't have to save both the factorization matrices and the $M_{\text{KKT}}$ matrix at
+the same time.
 
 \subsection{Experimentation}
 
-\section{Solving the general \texttt{KKT} system}
+\section{Solving the general KKT system}
 
-\subsection{$LU$ factorization}
+After getting acquainted with the KKT system without inequalities restrictions, it is
+time that we try to solve the full system.
+
+Just as we did before, we are going to try first a naive approach based on LU factorization, and
+then we will try to modify the system so that we can apply another type of factorization to reduce
+the execution time.
+
+\subsection{Naive approach}
+
+
 
 \subsection{$LDL^T$ factorization}
 
 \subsection{Experimentation}
-
-\section{Conclusions}
-
-\section{Additional comments}
 
 \newpage
 
