@@ -53,7 +53,7 @@ def lu_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16, cond_num=Fa
 
         # Compute condition number
         if cond_num:
-            condition_numbers.append(np.linalg.cond(M_kkt, 2))
+            condition_numbers.append(np.linalg.cond(M_kkt, np.inf))
 
         # Step 1: Solve system
         d_z = np.linalg.solve(M_kkt, -rh_vector)
@@ -132,7 +132,7 @@ def ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16, cond_num=
 
         # Compute condition number
         if cond_num:
-            condition_numbers.append(np.linalg.cond(M_kkt, 2))
+            condition_numbers.append(np.linalg.cond(M_kkt, np.inf))
 
         # Step 1: Solve system
         rh_vector = np.hstack((r_L, r_C - r_s / lamb))
@@ -214,7 +214,7 @@ def cholesky_solver(G, C, g, d, lamb_0, s_0, x_0, max_iter=100, tol=1e-16, cond_
 
         # Compute condition number
         if cond_num:
-            condition_numbers.append(np.linalg.cond(G_hat, 2))
+            condition_numbers.append(np.linalg.cond(G_hat, np.inf))
 
         # Step 1: Solve system
         y = spla.solve_triangular(G_hat, -rh_vector, lower=True)

@@ -49,12 +49,14 @@ def squared_error(g, x):
 
 n_iters = []
 times = []
-condition_numbers = []
+lu_cond_nums = []
+ldl_cond_nums = []
+cholesky_cond_nums = []
 errors = []
 problem_sizes = [10, 25, 50, 100, 200, 500, 1000]
 
 # Set random number generator seed
-np.random.seed(42)
+np.random.seed(7)
 
 print('################################ KKT INEQUALITY ################################')
 
@@ -73,52 +75,165 @@ for n in problem_sizes:
     print(f'Problem size: {n}\n\n')
 
     # Solve with every method and show solution and time
-    x, i, total_t, cond_nums = kkt_ineq.lu_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=False)
+    x, i, total_t, _ = kkt_ineq.lu_solver(G, C, g, d, lamb_0, s_0, x_0)
+    _, _, _ , cond_nums = kkt_ineq.lu_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=True)
     error = squared_error(g, x)
     times.append(total_t)
     n_iters.append(i)
-    condition_numbers.append(cond_nums)
+    lu_cond_nums.append(cond_nums)
     errors.append(error)
     print(f'Linear system solution squared error:\t\t{error}\tNum. iterations: {i}\tTime: {total_t}')
 
-    x, i, total_t, cond_nums = kkt_ineq.ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=False)
+    x, i, total_t, _ = kkt_ineq.ldlt_solver(G, C, g, d, lamb_0, s_0, x_0)
+    _, _, _, cond_nums = kkt_ineq.ldlt_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=True)
     error = squared_error(g, x)
     times.append(total_t)
     n_iters.append(i)
-    condition_numbers.append(cond_nums)
+    ldl_cond_nums.append(cond_nums)
     errors.append(error)
     print(f'LDL^t factorization solution squared error:\t{error}\tNum. iterations: {i}\tTime: {total_t}')
 
-    x, i, total_t, cond_nums = kkt_ineq.cholesky_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=False)
+    x, i, total_t, _ = kkt_ineq.cholesky_solver(G, C, g, d, lamb_0, s_0, x_0)
+    _, _, _, cond_nums = kkt_ineq.cholesky_solver(G, C, g, d, lamb_0, s_0, x_0, cond_num=True)
     error = squared_error(g, x)
     times.append(total_t)
     n_iters.append(i)
-    condition_numbers.append(cond_nums)
+    cholesky_cond_nums.append(cond_nums)
     errors.append(error)
     print(f'Cholesky factorization solution squared error:\t{error}\tNum. iterations: {i}\tTime: {total_t}\n\n')
 
-    print('-'*80)
-    print('\n\n')
+
+n_iters = np.array(n_iters).reshape(-1, 3)
+times = np.array(times).reshape(-1, 3)
+errors = np.array(errors).reshape(-1, 3)
+
+max_cond_lu = [max(lu_cond_nums[i]) for i in range(len(lu_cond_nums))]
+max_cond_ldl = [max(ldl_cond_nums[i]) for i in range(len(ldl_cond_nums))]
+max_cond_cholesky = [max(cholesky_cond_nums[i]) for i in range(len(cholesky_cond_nums))]
+
+# Plot time results
+plt.plot(problem_sizes, times[:, 0], label='LU')
+plt.plot(problem_sizes, times[:, 1], label=r'$LDL^T$')
+plt.plot(problem_sizes, times[:, 2], label='Cholesky')
+
+plt.xlabel('Problem size (n)')
+plt.ylabel('Time (s)')
+plt.legend()
+plt.show()
+
+# Plot max condition numbers
+plt.clf()
+plt.plot(problem_sizes, max_cond_lu, label='LU')
+plt.plot(problem_sizes, max_cond_ldl, label='LDL')
+plt.plot(problem_sizes, max_cond_cholesky, label='Chokesky')
+
+plt.xlabel('Problem size (n)')
+plt.ylabel('Max. condition number')
+plt.legend()
+plt.show()
+
+plt.clf()
+plt.plot(problem_sizes, max_cond_lu, label='LU')
+plt.plot(problem_sizes, max_cond_cholesky, label='Chokesky')
+
+plt.xlabel('Problem size (n)')
+plt.ylabel('Max. condition number')
+plt.legend()
+plt.show()
+
+# Plot condition numbers per iterations
+plt.clf()
+
+for i in range(len(lu_cond_nums)):
+    plt.plot(np.arange(1, n_iters[i, 0] + 1), lu_cond_nums[i], label=f'n={problem_sizes[i]}')
+
+plt.xlabel('Num. iterations')
+plt.ylabel('Condition number')
+plt.legend()
+plt.show()
+
+
+plt.clf()
+
+for i in range(len(lu_cond_nums)):
+    plt.plot(np.arange(1, n_iters[i, 1] + 1), ldl_cond_nums[i], label=f'n={problem_sizes[i]}')
+
+plt.xlabel('Num. iterations')
+plt.ylabel('Condition number')
+plt.legend()
+plt.show()
+
+
+plt.clf()
+
+for i in range(len(lu_cond_nums)):
+    plt.plot(np.arange(1, n_iters[i, 2] + 1), cholesky_cond_nums[i], label=f'n={problem_sizes[i]}')
+
+plt.xlabel('Num. iterations')
+plt.ylabel('Condition number')
+plt.legend()
+plt.show()
+
 
 
 print('################################ KKT GENERAL CASE ################################')
 
+problem_sizes = [100, 1000]
+lu_cond_nums = []
+ldl_cond_nums = []
+n_iters_lu = []
+n_iters_ldl = []
+
 G, A, C, g, b, d, x_0, gamma_0, lamb_0, s_0 = load_problem('optpr1', 100)
 
-x_sol, i, total_t, condition_numbers = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+x_sol, i, total_t, _ = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+_, _, _, condition_numbers = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, cond_num=True)
+lu_cond_nums.append(condition_numbers)
+n_iters_lu.append(i)
 f_sol = compute_value(G, g, x_sol)
-print(f'Linear system solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+print(f'Linear system solution:\t{f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
 
-x_sol, i, total_t, condition_numbers = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+x_sol, i, total_t, _ = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+_, _, _, condition_numbers = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, cond_num=True)
+ldl_cond_nums.append(condition_numbers)
+n_iters_ldl.append(i)
 f_sol = compute_value(G, g, x_sol)
 print(f'LDL^t factorization solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
 
 G, A, C, g, b, d, x_0, gamma_0, lamb_0, s_0 = load_problem('optpr2', 1000)
 
-x_sol, i, total_t, condition_numbers = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+x_sol, i, total_t, _ = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+_, _, _, condition_numbers = kkt_general.lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, cond_num=True)
+lu_cond_nums.append(condition_numbers)
+n_iters_lu.append(i)
 f_sol = compute_value(G, g, x_sol)
-print(f'Linear system solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+print(f'Linear system solution:\t{f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
 
-x_sol, i, total_t, condition_numbers = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+x_sol, i, total_t, _ = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0)
+_, _, _, condition_numbers = kkt_general.ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, cond_num=True)
+ldl_cond_nums.append(condition_numbers)
+n_iters_ldl.append(i)
 f_sol = compute_value(G, g, x_sol)
 print(f'LDL^t factorization solution: {f_sol}\tNum. iterations: {i}\tTime: {total_t}s')
+
+# Plot condition numbers per iterations
+plt.clf()
+
+for i in range(len(lu_cond_nums)):
+    plt.plot(np.arange(1, n_iters_lu[i] + 1), lu_cond_nums[i], label=f'n={problem_sizes[i]}')
+
+plt.xlabel('Num. iterations')
+plt.ylabel('Condition number')
+plt.legend()
+plt.show()
+
+
+plt.clf()
+
+for i in range(len(lu_cond_nums)):
+    plt.plot(np.arange(1, n_iters_ldl[i] + 1), ldl_cond_nums[i], label=f'n={problem_sizes[i]}')
+
+plt.xlabel('Num. iterations')
+plt.ylabel('Condition number')
+plt.legend()
+plt.show()

@@ -11,6 +11,7 @@
 \usepackage[T1]{fontenc}					% Usar textsc en sections
 \usepackage{amsmath}						% Símbolos matemáticos
 \usepackage{amsfonts}
+\usepackage{subcaption}
 
 % Comando para poner el nombre de la asignatura
 \newcommand{\subject}{Numerical Linear Algebra}
@@ -172,8 +173,6 @@ matrix:
     0 & S & \Lambda
   \end{pmatrix}
 \end{equation}
-  
-
 
 There are some strategies that we can follow in order to solve the linear system of
 equations. First, we will start by discussing a \textit{naive} approach, and later on we will present
@@ -341,14 +340,111 @@ $G$ is SPD. If the product $CS^{-1}\Lambda C^T$ is also SPD, then we would have 
 is also SPD and it can be factorized using this method.
 
 \noindent \textbf{C4.2:} The \texttt{cholesky\_solver} function (found in the same file
-as the previous two) implements the Cholesky factorization and solves the system. The biggest
-difference regarding the previous ones is that here we don't use the $M_{\text{KKT}}$ matrix.
+as the previous two) implements the Cholesky factorization and solves the system. To compute the
+factorization, we have used the \texttt{scipy.linalg.cholesky} function. The biggest
+difference regarding the previous approaches is that here we don't use the $M_{\text{KKT}}$ matrix.
 Instead, we compute $\hat{G}$ and then compute its Cholesky factorization and replace its value
-(since its only used to compute the factorization). This allows us to save some extra space because
+(since its only used to compute the factorization). This allows us to save some extra memory because
 we don't have to save both the factorization matrices and the $M_{\text{KKT}}$ matrix at
 the same time.
 
 \subsection{Experimentation}
+
+Now that we have a general idea of the different approaches that we are going to use to solve
+this particular problem, let us perform some experimentation on them to see how they behave.
+
+We are going to generate matrices and vectors of different sizes according to the provided instructions.
+The sizes that we are going to use, which corresponds to the value of $n$, are going to be 10, 25, 50,
+100, 200, 500 and 1000. This way we will be able to see how each method performs when the size of the
+problem increases. We are also going to set $r = 7$ as the random seed, so that the executions can be
+easily reproducible.
+
+We want to get some metrics for each method to see how well it performs, such as:
+
+\begin{itemize}
+  \item Execution time.
+  \item Number of iterations until it converges.
+  \item Squared error to the real solution, given by $\| -g - x \|_2$.
+  \item Condition number for each iteration. The matrices that we are going to use are the following
+  ones: $3 \times 3$ $M_\text{KKT}$ block matrix for the naive approach (LU factorization),
+  $2 \times 2$ $M_\text{KKT}$ block matrix for $LDL^T$ factorization and $\hat{G}$ matrix for Cholesky factorization.
+  The selected norm is the $\| \cdot \|_\infty $ norm because we had some trouble computing the condition number
+  with the $\| \cdot \|_2$ norm.
+\end{itemize}
+
+Let us now comment the results that we have obtained. For every problem size, all methods need exactly
+the same number of iterations to converge. The number of iterations varies between 16-18 depending on the
+size of the model. The error for all of them is 0, so they arrive at the expected solution once the
+Newton's method finishes.
+
+In the figure \ref{fig:execution-time} we can observe the execution time of each model. For small problems,
+the different methods behave more or less in the same way. However, once the problem size starts increasing,
+we can clearly see that the LU factorization is the slowest one of them all. The  $LDL^T$ factorization
+comes in second place and is actually quite fast, needing approximately one fifth of the time of the LU method
+for the largest problem. Finally, we can see that the method that uses the Cholesky factorization is the
+fastest one for bigger problems, needing less than one fifth of the time of the LU factorization and approximately
+less than half the time that the $LDL^T$ needs.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.6]{img/inequality_times}
+  \caption{Execution time of each method for different problem sizes.}
+  \label{fig:execution-time}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/max_cond_num_all}
+    \caption{Maximum condition number for all methods.}
+  \end{subfigure}%
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/max_cond_num_lu_cho}
+    \caption{Maximum condition number for LU and Cholesky methods.}
+  \end{subfigure}
+  \caption{Evolution of the maximum condition number regarding the problem size.}
+  \label{fig:max-cond-number}
+\end{figure}
+
+If we observe figure \ref{fig:max-cond-number}, we can see that the $LDL^T$ factorization
+is the method with the highest maximum condition number for every problem size. The LU method
+also has quite a large maximum condition number, but it is not comparable with the LU method.
+The Cholesky method is the one with the smallest maximum condition number, which is no surprise at all
+considering the fact that it is the most stable method among the three that we have studied.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.45]{img/cond_num_iter_lu}
+    \caption{LU factorization.}
+  \end{subfigure}%
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.45]{img/cond_num_iter_ldl}
+    \caption{$LDL^T$ factorization.}
+  \end{subfigure}
+  \vskip\baselineskip
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.45]{img/cond_num_iter_cho}
+    \caption{Cholesky factorization.}
+  \end{subfigure}
+  \caption{Evolution of the condition number of the three methods for all problem sizes.}
+  \label{fig:ineq-cond-num-evolution}
+\end{figure}
+
+In the figure \ref{fig:ineq-cond-num-evolution} we can see more clearly how the condition number changes
+as the different methods progress. For instance, for LU factorization we see how it spikes at the
+beginning but then stabilizes. Something similar happens with the Cholesky factorization. However, its peak
+is much smaller than the one from the LU factorization. The $LDL^T$ factorization behaves the other way around:
+it seems stable at the beginning but, as we converge to the solution, it increases drastically. However,
+since we are close to the stopping point, this doesn't have a lot of impact on the solution.
+Recall also that previously we found out that the squared error was 0 for all solutions. Thus,
+even if at some point the matrices may become ill or badly conditioned, they end up
+stabilizing very quickly and converging to a good solution.
 
 \section{Solving the general KKT system}
 
@@ -361,21 +457,193 @@ the execution time.
 
 \subsection{Naive approach}
 
+For this first approach, we have once again used the \texttt{numpy.linalg.solve} function
+to solve the linear system. This time, however, we have a $4 \times 4$ block matrix, so
+it is expected that it will take more time until the solution is found.
 
+\noindent \textbf{C5:} The \texttt{kktsolvers/general.py} script includes a function called
+\texttt{lu\_solver} that, as its name states, solves the general system using the LU
+factorization. The difference with the previous one is that, in this case, we have
+the $A$ matrix. Thus, the \texttt{solve\_system} function has been adapted so that when
+$F(z_k)$ is computed, it also returns $r_A$. This way we can update the $\gamma$ variable.
+Other than that, its inner workings are pretty much the same.
+
+Just like before, this method suffers, in general, from poor performance. So, we are now
+going to try another strategy that allows us to reduce the execution time. In this case,
+we are going to try the $LDL^T$ factorization and see how it works.
 
 \subsection{$LDL^T$ factorization}
 
+\noindent \textbf{T3:} In order to apply the $LDL^T$ factorization, we have to transform the
+$M_{\text{KKT}}$ matrix for the general KKT problem so that it is symmetric. Right now we have the
+following linear system:
+
+\begin{equation}
+  \label{eq:kkt-general-system}
+  \begin{pmatrix}
+    G & -A & -C & 0 \\
+    -A^T & 0 & 0 & 0 \\
+    -C^T & 0 & 0 & I \\
+    0 & 0 & S & \Lambda
+  \end{pmatrix}
+  \begin{pmatrix}
+    \delta_x \\
+    \delta_\gamma \\
+    \delta_\lambda \\
+    \delta_s
+  \end{pmatrix}
+  =
+  -
+  \begin{pmatrix}
+    r_L \\
+    r_A \\
+    r_C \\
+    r_s
+  \end{pmatrix}
+\end{equation}
+
+We can represent the previous system as follows:
+
+\begin{equation*}
+  \begin{aligned}
+    G\delta_x - A\delta_\gamma - C\delta_\lambda &= -r_L \\
+    -A^T\delta_x &= -r_A \\
+    -C^T\delta_x + I\delta_s &= -r_C \\
+    S\delta_\lambda + \Lambda\delta_s &= -r_s
+  \end{aligned}
+\end{equation*}
+
+If we isolate $\delta_s$ from the fourth row of the system, we obtain the following
+expression:
+
+\[
+  \delta_s = -\Lambda^{-1}(r_s - S\delta_\lambda)
+\]
+
+We now substitute the previous result in the third row and get the following:
+
+\begin{equation*}
+  \begin{gathered}
+    -C^T\delta_x - \Lambda^{-1}(r_s + S\delta_\lambda) = -r_C \\
+    -C^T\delta_x - \Lambda^{-1}r_s - \Lambda^{-1}S\delta_\lambda = -r_C \\
+    -C^T\delta_x - \Lambda^{-1}S\delta_\lambda = -r_c + \Lambda^{-1}r_s
+  \end{gathered}
+\end{equation*}
+
+With these results, we can rewrite the $M_\text{KKT}$ system from expression
+\eqref{eq:kkt-general-system} as
+
+\begin{equation}
+  \begin{pmatrix}
+    G & -A & -C \\
+    -A^T & 0 & 0 \\
+    -C^T & 0 & -\Lambda^{-1}S
+  \end{pmatrix}
+  \begin{pmatrix}
+    \delta_x \\
+    \delta_\gamma \\
+    \delta_\lambda
+  \end{pmatrix}
+  =
+  -
+  \begin{pmatrix}
+    r_L \\
+    r_A \\
+    r_C - \Lambda^{-1}r_s
+  \end{pmatrix}
+\end{equation}
+
+Like in the previous case, it is easy to see that the $3 \times 3$ $M_\text{KKT}$ block
+matrix is symmetric. $G$ is a SPD matrix, and the $-\Lambda^{-1}S$ is a diagonal matrix,
+which by definition is symmetric. In the matrix also appear the matrices $A$ and $C$ along
+with their transposed versions, which means that they can be interchanged without any
+problem. Thus, we see that our block matrix is symmetric, which implies that the $LDL^T$
+factorization can be applied.
+
+\noindent \textbf{C6:} The function \texttt{ldlt\_solver} from the same file as the previous
+one is the responsible for performing the $LDL^T$ factorization and solving the problem.
+
+Unfortunately, solving the system was not as straightforward as the last time. The culprit in this
+case is the $D$ matrix, because the function \texttt{scipy.linalg.ldl} actually returns a block
+diagonal matrix consisting of blocks of size at the most $2 \times 2$. In the previous case
+we didn't have this problem because the $D$ matrix was always diagonal, without any blocks in it.
+But here, there are some cases in which we can find elements adjacent to the main diagonal
+that are non-zero, effectively showing that it is actually a block diagonal matrix.
+
+There are some workarounds that we can perform to solve this issue. The first one is
+to use the \texttt{scipy.linalg.lapack.dsysv}, a \texttt{LAPACK} routine that solves the system
+directly performing the $LDL^T$ factorization under the hood. However, since using it feels like
+defeating the purpose of this exercise, we have implemented two functions that helped us solve
+this kind of systems.
+
+The main responsible for solving the linear system is the \texttt{ldl\_block\_solver} function.
+This function first permutes the $L$ matrix and the right hand vector using the permutation array
+obtained from the $LDL^T$ factorization. This way, we bring the $L$ matrix into a lower triangular
+one, and we permute the right hand vector accordingly. Also, we have to store the inverse permutation
+so we can undo it later.
+
+After that is done, the function solves 3 systems. The first one is a lower triangular system,
+and it calls the \texttt{scipy.linalg.solve\_triangular} function. Then, it solves the
+block diagonal system. There is no specific function for this, so we have created one that
+is called \texttt{solve\_block\_diagonal}. The function iterates over the elements of the diagonal
+and checks if the adjacent elements (the one on the right and below the current one) are zero or very
+close to it (there might have been some perturbation in the computations, so we establish a threshold
+to filter these values out). If the adjacent elements are below the threshold, then it divides the
+corresponding element of the right hand vector by the current element of the diagonal. Otherwise, it
+solves a $2 \times 2$ linear system using the \texttt{np.linalg.solve} function. For systems this small,
+its performance is acceptable. Once this system is solved, the function solves an upper triangular
+system. Finally, it applies the inverted permutation to the result vector so that the values come
+back to their original positions.
+
 \subsection{Experimentation}
 
-\newpage
+Having defined the new approaches that we are going to use to solve the general system, we are going to
+carry out now some experiments to see how well they actually perform.
 
-\begin{thebibliography}{5}
+We are given two problems: one of size $n = 100$, and the other one of size $n = 1000$. We are going to
+try to solve them and see if we can get the solution or very close to it. Also, we would like to know
+how much time it takes the two methods to converge and what are the condition numbers of the matrices.
 
-\bibitem{nombre-referencia}
-Texto referencia
-\\\url{https://url.referencia.com}
+For the first problem, both methods find exactly the same solution, which is $11590.7181$ approximately and
+corresponds with the one that we are given. However, the LU method needs 22 iterations and $0.172$ seconds
+approximately to reach it, whereas the $LDL^T$ method needs 23 iterations and $0.519$ seconds approximately.
+The difference in iterations is not very significant, but the difference in time is. The reason behind this might
+be that the implementation of the function that solves the block diagonal system is not optimized enough or
+that it should be implemented in a lower level language.
 
-\end{thebibliography}
+If we study now the results obtained for the second problem, we see that both methods reach exactly the same
+solution again, which is $1087511.5673$ approximately and corresponds with the given solution.
+Unlike in the previous case, here the LU factorization needs 29 iterations and $58.85$ seconds approximately
+to reach the solution, whereas the $LDL^T$ method requires 28 iterations and only $16.92$ seconds to reach
+it. Once more, the difference in the number of iterations is not really significant. However, what is significant
+is the time difference. In this case, the LU method is much slower than the $LDL^T$ factorization.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/equality_cond_iter_lu}
+    \caption{LU factorization.}  
+  \end{subfigure}%
+  \begin{subfigure}[t]{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/equality_cond_iter_ldl}
+    \caption{$LDL^T$ factorization.}  
+  \end{subfigure}
+  \caption{Evolution of the condition number for each method and each problem.}
+  \label{fig:eq-cond-num}
+\end{figure}
+
+Now, in order to study the evolution of the condition number, we have computed the condition numbers
+of the respective $M_\text{KKT}$ matrices of each method using again the $\| \cdot \|_\infty$ norm.
+
+If we observe the figure \ref{fig:eq-cond-num}, we can see that that for the small problem, the condition number
+of the LU method increases slightly at the end, but for the $LDL^T$ method it increases much drastically.
+For the big problem, it increases a lot on both of them, but in the LU case it seems that it stabilizes after that.
+Notice however that the values that are reached are very big (more than $10^20$), which would cause the matrix to be
+ill-conditioned. But, since these changes occur usually at the end, they don't seem to affect the result at all since
+the method is really close the solution.
+
 
 \end{document}
 

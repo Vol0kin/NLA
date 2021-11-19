@@ -56,7 +56,7 @@ def lu_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=100, tol=1e-
 
         # Compute condition number
         if cond_num:
-            condition_numbers.append(np.linalg.cond(M_kkt, 2))
+            condition_numbers.append(np.linalg.cond(M_kkt, np.inf))
 
         # Step 1: Solve system
         d_z = np.linalg.solve(M_kkt, -rh_vector)
@@ -184,7 +184,7 @@ def ldlt_solver(G, A, C, g, b, d, lamb_0, gamma_0, s_0, x_0, max_iter=100, tol=1
 
         # Compute condition number
         if cond_num:
-            condition_numbers.append(np.linalg.cond(M_kkt, 2))
+            condition_numbers.append(np.linalg.cond(M_kkt, np.inf))
 
         # Step 1: Solve system
         rh_vector = np.hstack((r_L, r_A, r_C - r_s / lamb))
