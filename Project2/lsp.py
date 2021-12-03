@@ -37,18 +37,26 @@ def solve_lsp_qr_full_rank(A, b):
 
 
 def solve_lsp_qr_rank_deficient(A, b):
-    # Get number of independent columns for the thin decomposition
+    n = A.shape[1]
     rk = np.linalg.matrix_rank(A)
 
     Q, R, p = spla.qr(A, pivoting=True)
     y = np.dot(Q.T, b)
+
+    # Create permutation matrix (row permutation)
+    I = np.eye(n)
+    P_mat = I[p]
 
     R1 = R[:rk, :rk]
     y1 = y[:rk]
 
     x = spla.solve_triangular(R1, y1)
 
-    # Find out how to use p
+    # Get full solution
+    x = np.concatenate((x, np.zeros(n - rk)))
+
+    # Multiply by transpose of permutation matrix, which gives column permutations
+    x = np.dot(P_mat.T, x)
 
     return x
 
@@ -77,6 +85,10 @@ x_svd = solve_lsp_svd(A, b)
 x_qr = solve_lsp_qr_rank_deficient(A, b)
 
 svd_err = np.linalg.norm(np.dot(A, x_svd) - b, 2)
+qr_err = np.linalg.norm(np.dot(A, x_qr) - b, 2)
+
 print(x_svd)
 print(svd_err)
+
 print(x_qr)
+print(qr_err)
