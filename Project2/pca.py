@@ -20,12 +20,15 @@ def PCA(X, covariance=True, main_axis=1):
 
     # Compute SVD of Y
     _, s, v = np.linalg.svd(Y, full_matrices=False)
-    r = np.sum(s > 1e-10)
+    tol = s[0] * max(X.shape) * np.finfo(float).eps
+    rank = np.sum(s > tol)
 
-    principal_components = np.dot(v[:r, :], X)
-    variance_proportion = s[:r] / np.sum(s[:r] ** 2)
+    s, v = s[:rank], v[:rank, :]
+
+    principal_components = np.dot(v, X)
+    variance_proportion = s / np.sum(s ** 2)
     acc_variance = np.cumsum(variance_proportion)
-    std = s[:r]
+    std = s
 
     return principal_components, variance_proportion, acc_variance, std
 

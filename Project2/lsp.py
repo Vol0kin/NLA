@@ -2,12 +2,15 @@ import numpy as np
 import scipy.linalg as spla
 import matplotlib.pyplot as plt
 
-def solve_lsp_svd(A, b, tol=1e-10):
-    # Set full_matrices=false so that u is (M, K) and v is (K, N)
+def solve_lsp_svd(A, b):
+    # Set full_matrices=False so that u is (M, K) and v is (K, N)
     u, s, v = np.linalg.svd(A, full_matrices=False)
 
-    # Compute rank of diagonal matrix (array in this case) containing eigenvalues
-    # This is used for the rank deficient case
+    # Compute rank of diagonal matrix (array in this case) containing singular values.
+    # This is used for the rank deficient case. The formula for the tolerance
+    # has been extracted from the Numpy documentation.
+    # Reference: https://numpy.org/doc/stable/reference/generated/numpy.linalg.matrix_rank.html
+    tol = s[0] * max(A.shape) * np.finfo(float).eps
     rank = np.sum(s > tol)
 
     u, s, v = u[:, :rank], s[:rank], v[:rank, :]
@@ -70,11 +73,11 @@ degrees = [i for i in range(2, 16)]
 
 for deg in degrees:
     A = np.array([[p ** i for i in range(deg + 1)] for p in a])
-    x = solve_lsp_qr_full_rank(A, b)
+    x = solve_lsp_svd(A, b)
 
-    # plt.scatter(a, b)
-    # plt.scatter(a, np.dot(A, x))
-    # plt.show()
+    plt.scatter(a, b)
+    plt.scatter(a, np.dot(A, x))
+    plt.show()
 
 
 # Read input file
