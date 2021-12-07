@@ -2,15 +2,17 @@ import numpy as np
 import scipy.linalg as spla
 import matplotlib.pyplot as plt
 
-def solve_lsp_svd(A, b):
+def solve_lsp_svd(A, b, tol=None):
     # Set full_matrices=False so that u is (M, K) and v is (K, N)
     u, s, v = np.linalg.svd(A, full_matrices=False)
 
     # Compute rank of diagonal matrix (array in this case) containing singular values.
     # This is used for the rank deficient case. The formula for the tolerance
-    # has been extracted from the Numpy documentation.
+    # has been extracted from Numpy's documentation.
     # Reference: https://numpy.org/doc/stable/reference/generated/numpy.linalg.matrix_rank.html
-    tol = s[0] * max(A.shape) * np.finfo(float).eps
+    if tol is None:
+        tol = s[0] * max(A.shape) * np.finfo(float).eps
+
     rank = np.sum(s > tol)
 
     u, s, v = u[:, :rank], s[:rank], v[:rank, :]
@@ -41,7 +43,7 @@ def solve_lsp_qr_full_rank(A, b):
 
 def solve_lsp_qr_rank_deficient(A, b):
     n = A.shape[1]
-    rk = np.linalg.matrix_rank(A)
+    rank = np.linalg.matrix_rank(A)
 
     Q, R, p = spla.qr(A, pivoting=True)
     y = np.dot(Q.T, b)
@@ -50,13 +52,13 @@ def solve_lsp_qr_rank_deficient(A, b):
     I = np.eye(n)
     P_mat = I[p]
 
-    R1 = R[:rk, :rk]
-    y1 = y[:rk]
+    R1 = R[:rank, :rank]
+    y1 = y[:rank]
 
     x = spla.solve_triangular(R1, y1)
 
     # Get full solution
-    x = np.concatenate((x, np.zeros(n - rk)))
+    x = np.concatenate((x, np.zeros(n - rank)))
 
     # Multiply by transpose of permutation matrix, which gives column permutations
     x = np.dot(P_mat.T, x)
@@ -64,34 +66,66 @@ def solve_lsp_qr_rank_deficient(A, b):
     return x
 
 
-Ab = np.loadtxt('datafile.txt')
-a, b = Ab[:, 0], Ab[:, 1]
-n_points = len(a)
+def compute_error(A, b, x):
+    return np.linalg.norm(np.dot(A, x) - b, 2)
 
 
-degrees = [i for i in range(2, 16)]
+def plot_error(degrees, errors):
+    plt.plot(degrees, errors, 'bo-')
 
-for deg in degrees:
-    A = np.array([[p ** i for i in range(deg + 1)] for p in a])
-    x = solve_lsp_svd(A, b)
+    plt.xlabel('Degree of the polynomial')
+    plt.ylabel('Error')
 
-    plt.scatter(a, b)
-    plt.scatter(a, np.dot(A, x))
     plt.show()
 
 
-# Read input file
-Ab = np.loadtxt('datafile2.csv', delimiter=',')
-A, b = Ab[:, :-1], Ab[:, -1]
+##################### Problem 1 #####################
+# Read input file and load data
+data = np.loadtxt('datafile.txt')
+a, b = data[:, 0], data[:, 1]
+n_points = len(a)
+
+degrees = [i for i in range(2, 19)]
+
+svd_errors = []
+svd_errors_fix_tol = []
+qr_errors = []
+
+print('##################### Problem 1 #####################\n\n')
+
+for deg in degrees:
+    A = np.array([[p ** i for i in range(deg + 1)] for p in a])
+    x_svd = solve_lsp_svd(A, b)
+    x_svd_fix_tol = solve_lsp_svd(A, b, tol=1e-10)
+    x_qr = solve_lsp_qr_full_rank(A, b)
+
+    svd_error = compute_error(A, b, x_svd)
+    svd_error_fix_tol = compute_error(A, b, x_svd_fix_tol)
+    qr_error = compute_error(A, b, x_qr)
+
+    svd_errors.append(svd_error)
+    svd_errors_fix_tol.append(svd_error_fix_tol)
+    qr_errors.append(qr_error)
+
+    print(f'\nPolynomial degree: {deg}')
+    print(f'Errors:\tSVD: {svd_error}\tSVD fixed tolerance:{svd_error_fix_tol}\tQR: {qr_error}')
+
+plot_error(degrees, svd_errors)
+plot_error(degrees, svd_errors_fix_tol)
+plot_error(degrees, qr_errors)
+
+##################### Problem 2 #####################
+# Read input file and load data
+data = np.loadtxt('datafile2.csv', delimiter=',')
+A, b = data[:, :-1], data[:, -1]
 
 x_svd = solve_lsp_svd(A, b)
 x_qr = solve_lsp_qr_rank_deficient(A, b)
 
-svd_err = np.linalg.norm(np.dot(A, x_svd) - b, 2)
-qr_err = np.linalg.norm(np.dot(A, x_qr) - b, 2)
+print('\n\n##################### Problem 2 #####################\n\n')
 
-print(x_svd)
-print(svd_err)
+svd_error = compute_error(A, b, x_svd)
+qr_error = compute_error(A, b, x_qr)
 
-print(x_qr)
-print(qr_err)
+print(f'Error using SVD: {svd_error}')
+print(f'Error using QR: {qr_error}')
