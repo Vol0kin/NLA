@@ -15,7 +15,6 @@ def bw_compression(image, rank):
 
 def color_compression(image, rank):
     compressed_image = []
-    errors = []
 
     for d in range(3):
         image_single_channel = image[:, :, d]
@@ -25,12 +24,12 @@ def color_compression(image, rank):
         compressed_channel = np.dot(u[:, :rank], np.dot(np.diagflat(s[:rank]), v[:rank, :]))
         compressed_image.append(compressed_channel)
 
-        # Compute error of the low rank approximation of the channel using the Frobenius norm
-        image_norm = np.linalg.norm(image_single_channel)
-        errors.append(np.linalg.norm(image_single_channel - compressed_image) / image_norm)
-    
+    # Create compressed image by stacking each channel
     compressed_image = np.dstack(compressed_image)
-    error = np.mean(errors)
+
+    # Compute error
+    image_norm = np.linalg.norm(image)
+    error = np.linalg.norm(image - compressed_image) / image_norm
 
     return compressed_image, error
     
