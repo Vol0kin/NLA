@@ -10,6 +10,7 @@
 \usepackage{enumitem}						% Permitir enumerate con distintos simbolos
 \usepackage[T1]{fontenc}					% Usar textsc en sections
 \usepackage{amsmath}						% Símbolos matemáticos
+\usepackage{amsfonts}
 
 % Comando para poner el nombre de la asignatura
 \newcommand{\subject}{Numerical Linear Algebra}
@@ -69,15 +70,48 @@
 \newpage
 
 \setlength{\parskip}{1em}
+\setlength{\parindent}{0pt}
 
 \section{Introduction}
 
 The goal of this project is to discuss three common applications of the Singular Value
-Decomposition (SVD).
+Decomposition (SVD). First, let's briefly review what the SVD is.
 
-\section{Least Squares problem}
+Given a rectangular matrix $A \in \mathbb{R}^{m \times n}$ with $m \geq n$, we can express
+it as
 
-The first application that we are going to address is the Least Squares problem (LSP).
+\[
+  A = U \Sigma V^T
+\]
+
+where $U \in \mathbb{R}^{m \times m}$ and $V \in \mathbb{R}^{n \times n}$ are two orthogonal basis
+and $\Sigma \in \mathbb{R}^{m \times n}$ is a matrix that can be divided in the diagonal block
+$\Sigma\left[1:n, 1:n\right]$ with the singular values the singular values $\sigma_i$ in the diagonal
+and the zero block $\Sigma\left[(m-n):m, 1:n\right]$. The singular values are ordered such that
+$\sigma_1 \geq \sigma_2 \geq \dots \geq \sigma_n \geq 0$. Since $U$ and $V$ are orthogonal, we have
+that $U^{-1} = U^T$ and $V^{-1} = V^T$.
+
+There are some cases in which we can also compute a reduced version of the SVD, which is faster and
+reduces the amount of memory needed to store the matrices. This can be particularly useful in scenarios
+where the matrix $A$ is rank deficient.
+
+Let $A \in \mathbb{R}^{m \times n}$ be a rectangular matrix with $rank(A) = r$, where $r < n$. For this
+case, the reduced SVD can be computed as
+
+\[
+  A = U_r \Sigma_r V_r^T
+\]
+
+where $U_r \in \mathbb{R}^{m \times r}$ and $V_r^T \in \mathbb{R}^{r \times r}$ are the orthogonal
+basis and $\Sigma \in \mathbb{R}^{r \times r}$ is the diagonal matrix containing the nonzero
+singular values.
+
+There are many applications of the SVD, but in this project we are going to focus on three of them:
+solving the Least Squares Problem, graphic compression and Principal Component Analysis.
+
+\section{Least Squares Problem}
+
+The first application that we are going to address is the Least Squares Problem (LSP).
 
 \subsection{Polynomial fitting}
 
