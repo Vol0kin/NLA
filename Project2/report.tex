@@ -166,7 +166,7 @@ approximate the values using polynomials of different degrees. To do that, we ar
 the SVD approach both with a fixed tolerance of $10^{-10}$ and an adaptive one based on \texttt{Numpy}'s
 tolerance for the computation of the rank of a matrix and the QR factorization for the full rank problem.
 Once we have the projection vector $x$, we are going to compute the error of the approximation using the
-$l2$ norm to see how good the it is and to compare the different methods.
+2-norm to see how good the it is and to compare the different methods.
 
 \begin{figure}[H]
   \centering
@@ -218,15 +218,77 @@ $r < n$, the matrix $A$ is going to be rank deficient.
 For this problem we have used two methods: the reduced SVD with adaptive tolerance and the QR
 factorization with pivoting since we cannot apply QR factorization directly to the matrix $A$.
 
-Once again, we have solved the system and we have computed the error of the approximation using the $l2$
-norm. In this case, both methods have produced approximately the same error, which is around $1.1496$.
+Once again, we have solved the system and we have computed the error of the approximation using the
+2-norm. In this case, both methods have produced approximately the same error, which is around $1.1496$.
 
-As we can see, both method allow us to solve the problem with some small error. However, the method
+As we can see, both methods allow us to solve the problem with small error. However, the method
 based on the reduced SVD is much simpler and straightforward than the one using the QR factorization
 with pivoting. Therefore, for this problem we could have used the simplest one and still get a good
 result.
 
 \section{Image compression}
+
+Another problem where SVD can be applied is image compression, even though there are much better
+techniques out there. In order to compress images, we can use a \textbf{lower rank approximation} of
+them.
+
+Fortunately, the SVD factorization has the property of giving the best low rank approximation matrix
+with respect to the Frobenius norm and the 2-norm. For a given value of $k = 1, \dots, r$, the matrix
+
+\[
+  A_k = \sum_{i=1}^k \sigma_i u_i v_i^T = U_k \Sigma_k V_k^T
+\]
+
+is the best rank $k$ approximation of $A$ with respect to both the Frobenius norm and the 2-norm.
+For any of these two norms, we have that
+
+\begin{equation}
+  \label{eq:low-rank-approximation}
+  \left\lVert A - A_k \right\rVert =
+  \left\lVert \Sigma - \Sigma_k \right\rVert =
+  \left\lVert
+    \begin{bmatrix}
+      0 & & & & & \\
+      & \ddots & & & & \\
+      & & 0 & & & \\
+      & & & \sigma_{k+1} & & \\
+      & & & & \ddots & \\
+      & & & & & \sigma_r \\
+      & & & 0 & &
+    \end{bmatrix}
+  \right\rVert
+\end{equation}
+
+The Frobenius norm for a given matrix A can be expressed in terms of its SVD factorization as follows:
+
+\[
+  \left\lVert A \right\rVert_F =
+  \left\lVert U^T A V \right\rVert_F =
+  \left\lVert \Sigma \right\rVert_F =
+  \sqrt{\sum_{i=1}^r \sigma_i^2}
+\]
+
+Following the results obtained in \eqref{eq:low-rank-approximation}, we get that the Frobenius norm
+can be computed as
+
+\[
+  \left\lVert A - A_k \right\rVert_F = \sqrt{\sum_{i=k+1}^r \sigma_i^2}
+\]
+
+The 2-norm can also be expressed in terms of the SVD:
+
+\[
+  \left\lVert A \right\rVert_2 =
+  \left\lVert U^T A V \right\rVert_2 =
+  \left\lVert \Sigma \right\rVert_2 = \sigma_1
+\]
+
+Hence, using again the results from expression \eqref{eq:low-rank-approximation}, we get the 2-norm can
+be computed as
+
+\[
+  \left\lVert A - A_k \right\rVert_2 = \sigma_{k+1}
+\]
 
 \section{Principal Component Analysis}
 
