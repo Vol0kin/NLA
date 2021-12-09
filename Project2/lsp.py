@@ -81,7 +81,7 @@ def plot_error(degrees, errors):
 
 ##################### Problem 1 #####################
 # Read input file and load data
-data = np.loadtxt('datafile.txt')
+data = np.loadtxt('dades.txt')
 a, b = data[:, 0], data[:, 1]
 n_points = len(a)
 
@@ -116,7 +116,7 @@ plot_error(degrees, qr_errors)
 
 ##################### Problem 2 #####################
 # Read input file and load data
-data = np.loadtxt('datafile2.csv', delimiter=',')
+data = np.loadtxt('dades_regressio.csv', delimiter=',')
 A, b = data[:, :-1], data[:, -1]
 
 x_svd = solve_lsp_svd(A, b)
