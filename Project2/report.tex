@@ -290,6 +290,214 @@ be computed as
   \left\lVert A - A_k \right\rVert_2 = \sigma_{k+1}
 \]
 
+We have created a script called \texttt{image\_compression.py} which implements the compression of both
+black and white and color images using a low rank approximation of the image. It automatically detects
+whether the input image is black and white or a color one. For the black and white case, it is as easy
+as computing the SVD of the input image, selecting the first $k$ singular values and then multiplying matrices
+accordingly. For the color case, the low rank approximation is computed for each channel. After that, the
+approximations are stacked again so that the output image has 3 channels. The functions that perform the
+previous operations are called \texttt{bw\_compression} and \texttt{color\_compression}. The script can only
+compress one image at a time. In order to run the script, run the following in the command line:
+
+\texttt{\$ python3 image\_compression.py -i IMAGE\_PATH -r RANK}
+
+To see how good the low rank approximation is, we have computed the relative error of the approximation
+using the Frobenius norm as follows:
+
+\[
+  \frac{\left\lVert A - A_k \right\rVert_F}{\left\rVert A \right\rVert_F} =
+  \frac{\sqrt{\sum_{i=k+1}^r \sigma_i^2}}{\sqrt{\sum_{i=1}^r \sigma_i^2}}
+\]
+
+To compute the error for color images we have computed it for each channel and then we have averaged
+the individual results.
+
+To test how the compression works, we have used four images. Three of them are black and white and the
+other one is a color one. The first one of them is a picture of two deer in a forest, which has a size
+of $800 \times 491$ pixels. The second one is a picture of New York, with a size of $1121 \times 700$ pixels.
+The third one is a picture of a woman which has a size of $1000 \times 780$ pixels. Lastly, we have a color picture
+of a dog, which has a size of $480 \times 360$ pixels. For each one of them, we are going to try different ranks.
+In this case, we will use $1$, $5$, $10$, $25$ and $100$.
+
+The results of the low rank approximations can be seen down below in figures \ref{fig:deer-lr-approximation},
+\ref{fig:new-york-lr-approximation}, \ref{fig:woman-lr-approximation} and \ref{fig:dog-lr-approximation}.
+In general, and as it is expected, we can see that for $k = 1$ we cannot tell what any of the images is.
+As the value of $k$ increases, we can appreciate more and more details of the original image.
+
+Generally speaking, when the rank of the approximation is around $k = 25$, we start to see that the
+approximation resembles the original image, although depending on the case it is more or less detailed. For
+instance, in figures \ref{fig:deer-lr-approximation}, \ref{fig:woman-lr-approximation} and
+\ref{fig:dog-lr-approximation} we can see that the approximations resemble the original image quite a lot.
+On the other hand, the image of New York (figure \ref{fig:new-york-lr-approximation}) is still
+quite blurry and a big part of the details are lost. The image of the woman is a particular case,
+because starting from $k = 10$ we can clearly tell what its content is. This might be due to the fact that it
+doesn't have as much details as the other ones.
+
+For $k = 100$, we can see that the image
+of the deer, the woman and the dog have almost the same frequencies as the original one. The photo of New York,
+however, still lacks some details, although it is much better than before. However, this is not surprising at
+all considering that this is the image that has the most details.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[scale=0.55]{img/lr_error}
+  \caption{Evolution of the relative error of the low rank approximation as the rank increases for all of
+  the images.}
+  \label{fig:lr-error}
+\end{figure}
+
+In figure \ref{fig:lr-error} we can appreciate how the relative error changes as the rank of the approximations
+increase. As it is expected, the higher the rank of the approximation, the lower the relative error. The image
+of the dog and the woman have very similar errors as the rank increases. They are followed by the image of the
+deer in the forest, which has a low relative error. As we could have imagined, the image of New York is the one
+that has the highest relative error. Nonetheless, as we saw before, it actually manages to decrease quite a lot
+as the rank of the approximation increases up to $k = 100$.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/k1_deer}
+    \caption{$k = 1$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/k5_deer}
+    \caption{$k = 5$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/k10_deer}
+    \caption{$k = 10$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/k25_deer}
+    \caption{$k = 25$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/k100_deer}
+    \caption{$k = 100$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.2]{img/deer}
+    \caption{Original}
+  \end{subfigure}%
+  \caption{Low rank approximation of the image containing deer.}
+  \label{fig:deer-lr-approximation}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k1_new_york}
+    \caption{$k = 1$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k5_new_york}
+    \caption{$k = 5$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k10_new_york}
+    \caption{$k = 10$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k25_new_york}
+    \caption{$k = 25$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k100_new_york}
+    \caption{$k = 100$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/new_york}
+    \caption{Original}
+  \end{subfigure}%
+  \caption{Low rank approximation of the image of New York.}
+  \label{fig:new-york-lr-approximation}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k1_woman}
+    \caption{$k = 1$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k5_woman}
+    \caption{$k = 5$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k10_woman}
+    \caption{$k = 10$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k25_woman}
+    \caption{$k = 25$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/k100_woman}
+    \caption{$k = 100$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.15]{img/woman}
+    \caption{Original}
+  \end{subfigure}%
+  \caption{Low rank approximation of the picture of a woman.}
+  \label{fig:woman-lr-approximation}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/k1_me_in_nla}
+    \caption{$k = 1$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/k5_me_in_nla}
+    \caption{$k = 5$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/k10_me_in_nla}
+    \caption{$k = 10$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/k25_me_in_nla}
+    \caption{$k = 25$}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/k100_me_in_nla}
+    \caption{$k = 100$}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.3]{img/me_in_nla}
+    \caption{Original}
+  \end{subfigure}%
+  \caption{Low rank approximation of the image of a dog that has seen too many things (and some cupcakes).}
+  \label{fig:dog-lr-approximation}
+\end{figure}
+
+
 \section{Principal Component Analysis}
 
 \subsection{Example problem}

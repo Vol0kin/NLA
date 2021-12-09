@@ -1,4 +1,4 @@
-.PHONY: clean
+.PHONY: clean zip
 IN = report
 FILES = $(IN).aux $(IN).log $(IN).out $(IN).synctex.gz $(IN).toc
 CXX = pdflatex
@@ -12,3 +12,6 @@ $(IN).pdf: $(IN).tex
 clean:
 	@echo Limpiando archivos extra generados por LaTex...
 	rm -f $(FILES)
+
+zip:
+	tar cvfz project2.tar.gz report.pdf *.py *.jpeg *.csv
