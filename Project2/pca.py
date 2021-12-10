@@ -76,12 +76,28 @@ X = np.loadtxt('example.dat')
 # Perform PCA using covariance matrix
 principal_components, variance_proportion, acc_variance, std = PCA(X, main_axis=0)
 
+print('##################### Problem 1 #####################')
+
+print('\n\nCovariance matrix\n')
+print('Portion of the total variance in each PC: ', variance_proportion)
+print('Accumulated variance in each PC: ', acc_variance)
+print('Standard Deviation of each PC: ', std)
+print('Dataset in new PCA coordinates:')
+print(principal_components)
+
 plot_pca(principal_components)
 kaiser_rule(std**2)
 variance_rule(acc_variance)
 
 # Perform PCA using correlation matrix
 principal_components, variance_proportion, acc_variance, std = PCA(X, covariance=False, main_axis=0)
+
+print('\n\nCorrelation matrix\n')
+print('Portion of the total variance in each PC: ', variance_proportion)
+print('Accumulated variance in each PC: ', acc_variance)
+print('Standard Deviation of each PC: ', std)
+print('Dataset in new PCA coordinates:')
+print(principal_components)
 
 plot_pca(principal_components)
 kaiser_rule(std**2)
@@ -97,6 +113,15 @@ experiments = df.columns.tolist()
 X = df.values
 
 principal_components, variance_proportion, acc_variance, std = PCA(X)
+
+pca_df = pd.DataFrame(principal_components, columns=[f'PC{i+1}' for i in range(20)])
+pca_df.insert(0, 'Sample', experiments, True)
+pca_df.insert(len(pca_df.columns), 'Variance', variance_proportion, True)
+pca_df.to_csv('PCA_RCsGoff.csv', header=True, index=False)
+
+print('\n\n\n##################### Problem 2 #####################')
+
+print('\nGenerated output file: PCA_RCsGoff.csv')
 
 plot_pca(principal_components)
 kaiser_rule(std**2)

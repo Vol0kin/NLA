@@ -500,19 +500,154 @@ as the rank of the approximation increases up to $k = 100$.
 
 \section{Principal Component Analysis}
 
+The last application of the SVD that we are going to see is the Principal Component Analysis (PCA).
+Very simply put, PCA is a technique used to detect the principal components of a data set in order to
+reduce it into fewer dimensions that still contain most of the information. These principal components
+form an orthonormal basis and are sorted according to their variance. Using them, we can project our data
+into a space where the variables are uncorrelated. Usually, one keeps the most relevant principal components,
+i.e. the ones that contain most of the variance of the original dataset, whereas the rest of them can be
+considered as noise.
+
+Given a matrix $X \in \mathbb{R}^{m \times n}$, where $m$ is the number of variables and $n$ the observations
+that make up the dataset, one can compute the covariance matrix as $C_X = \frac{1}{n-1} XX^T$. This
+matrix contains the relationship between each pair of variables (the covariance), and its diagonal contains
+the variance of each variable, which is in fact the covariance of a given with itself. Then, we
+could compute the eigenvalues and eigenvectors of this matrix. However, the computation of the covariance matrix
+is highly numerically unstable.
+
+Instead of doing that, we can consider the matrix $Y = \frac{1}{\sqrt{n-1}}X^T$. We can clearly see that
+$Y^T Y = C_X$. With this, we can compute the reduced SVD of the matrix $Y$:
+
+\[
+  Y = U \Sigma V^T
+\]
+
+where $U \in \mathbb{R}^{n \times r}$, $\Sigma \in \mathbb{R}^{r \times r}$ and $V \in \mathbb{R}^{r \times m}$,
+being $r = rank(Y)$.
+
+From here, we can see that $\sigma_i^2 = \lambda_i$, and the values are sorted in descending order, hence giving
+us the order of the principal components. If $\text{var}_T = \sum_i \lambda_i$ accounts for the total variance,
+then $\sigma_i^2 / \text{var}_T$ accounts for the portion of the total variance in each principal component.
+Also, the matrix $V$ contains the eigenvectors of $Y^T Y = C_X$ as columns, and the coordinates of the dataset
+in this new space are given by $V^T X$.
+
+That being said, let us now put this into practice. We have created a script called \texttt{pca.py} which
+contains the function \texttt{PCA}. This function computes the PCA of a given input matrix using the covariance
+or the correlation matrix depending on the boolean parameter \texttt{covariance}. First, it adjusts the matrix
+so that the variables are in the rows and the observations are represented as columns. Then, according to the
+selected matrix, it transforms the data accordingly. After that, it computes the $Y$ matrix and applies the
+reduced SVD to it. To compute the rank of the matrix, we have used a tolerance based on the the machine $\epsilon$
+for floating point numbers. Finally, we project the data into the new space and compute some additional
+information (proportion of the variance explained by each principal component, cumulative percentage of the
+variance explained and standard deviation).
+
+Also, we have to find out how many of the principal components we need to keep to explain the data. There are
+several techniques that we can apply, but we are going to focus on two of them:
+
+\begin{itemize}
+  \item \textbf{Kaiser rule}: Select the principal components whose eigenvalue is greater than 1. This can
+  be done, for instance, using a Scree plot.
+  \item \textbf{The 3/4 of the total variance rule}: Select the principal components that explain 3/4 of the
+  total variance. This can be done by checking the cumulative values of the explained variance.
+\end{itemize}
+
 \subsection{Example problem}
+
+First, we are going to apply PCA to an example problem. Here, we have 4 variables and 16 observations. We
+are going to apply PCA on both the covariance and the correlation matrix and see how each one of them performs.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_covariance}
+    \caption{Representation of the data using the two most important principal components.}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_covariance_kaiser}
+    \caption{Kaiser rule.}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_covariance_variance}
+    \caption{3/4 of the total variance rule.}
+  \end{subfigure}
+  \caption{Results for the covariance matrix.}
+  \label{fig:pc-covariance}
+\end{figure}
+
+In figure \ref{fig:pc-covariance} we can see the results obtained when using the covariance matrix. We can see
+the data represented using the two most important principal components. In this case, according to the Kaiser's
+rule we should use the first three principal components, whereas the 3/4 of the total variance rule tells us
+that we should only consider the two first principal components. In this case, it makes more sense to follow the
+3/4 rule, because using only two of them we can explain approximately 85\% of the total variance. Thus, we are
+not losing a log of information in the process, and we are actually using a smaller representation of the data.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_correlation}
+    \caption{Representation of the data using the two most important principal components.}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_correlation_kaiser}
+    \caption{Kaiser rule.}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_correlation_variance}
+    \caption{3/4 of the total variance rule.}
+  \end{subfigure}
+  \caption{Results for the correlation matrix.}
+  \label{fig:pc-correlation}
+\end{figure}
+
+In the figure above we can observe the results that we have obtained when using the correlation matrix. In
+this case, the representation of the data using only the two most important principal components changes a
+little bit from the previous case. Here, both the Kaiser rule and the 3/4 of the total variance rule suggest
+that we should use the first two principal components to represent the data. Therefore, in this case we can choose
+any of them. However, we have a stronger preference for the 3/4 rule because it allows us to explain a big part
+of the variance of the data keeping in general less principal components than when using Kaiser rule (see the
+previous case).
 
 \subsection{Genes problem}
 
-\newpage
+Let's apply now PCA to a bigger problem. We have a dataset with $58581$ variables and 20 observations.
+In this case, we are only going to use the covariance matrix, because when the correlation matrix is used,
+SVD is not able to converge to a solution.
 
-\begin{thebibliography}{5}
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_genes}
+    \caption{Representation of the data using the two most important principal components.}
+  \end{subfigure}%
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_genes_kaiser}
+    \caption{Kaiser rule.}
+  \end{subfigure}
+  \begin{subfigure}[t]{.5\textwidth}
+    \centering
+    \includegraphics[scale=0.4]{img/pc_genes_variance}
+    \caption{3/4 of the total variance rule.}
+  \end{subfigure}
+  \caption{Results for the genes problem using the covariance matrix.}
+  \label{fig:pc-genes}
+\end{figure}
 
-\bibitem{nombre-referencia}
-Texto referencia
-\\\url{https://url.referencia.com}
-
-\end{thebibliography}
+In figure \ref{fig:pc-genes} we can observe how the data is represented using only the first two
+principal components. Also, we can see how many principal components we have to chose according to the
+two rules. According to the Kaiser rule, we should choose the first 6 principal components, whereas
+if we use the 3/4 rule, we would only need to select the first 2 principal components. These two
+components already attain approximately 90\% of the total variance, so it doesn't make sense
+to use more, because we are not losing a significant amount of information. In this case, we can see
+that the 3/4 rule allows us to represent a good amount of information in less dimensions
+than the Kaiser rule, which makes it more suitable for this problem.
 
 \end{document}
 
