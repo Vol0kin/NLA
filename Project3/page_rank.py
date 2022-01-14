@@ -1,0 +1,60 @@
+import numpy as np
+import time
+
+def power_method(G, tol=1e-4, m=0.15):
+    start_time = time.time()
+
+    # Compute out-degree for each page
+    n = np.sum(G, axis=0)
+    n = np.squeeze(np.asarray(n))
+
+    num_links = len(n)
+
+    # Since G is a sparse matrix, the data can be represented as 3 arrays
+    # containing the rows containing values, the columns containing values and
+    # the actual values
+    in_links = G.row
+    out_links = G.col
+
+    # The G * D matrix product is going to produce a sparse matrix. The best
+    # way to calculate it is to iterate over the columns that contain values
+    # (outgoing links) and to compute the value of 1 / n_j, where j is the
+    # column containing a value
+    values = np.array([1 / n[out] for out in out_links])
+    values = (1 - m) * values
+
+    # Initialize array containing PR scores
+    x = np.ones(num_links) / num_links
+
+    
+    z = np.ones(num_links) / num_links
+    z[n != 0] *= m
+
+    norm_diff = 1
+    i = 0
+
+    while norm_diff > tol:
+        x_prev = np.copy(x)
+        x = np.zeros(num_links)
+
+        # in_links is used to reference the output position of the sparse dot
+        # product between the matrix and the PR vector in the current iteration.
+        # out_links is used to acces the particular values of the PR vector that
+        # take part in the sparse dot product.
+        for k in range(len(values)):
+            x[in_links[k]] += values[k] * x_prev[out_links[k]]
+
+        x += np.dot(z, x_prev)
+        norm_diff = np.linalg.norm(x - x_prev, ord=np.inf)
+
+        i += 1
+    
+    order = np.argsort(x)[::-1]
+
+    t_time = time.time() - start_time
+
+    return x, order, i, t_time
+
+
+def power_method_no_memory():
+    pass
