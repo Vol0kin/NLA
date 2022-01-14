@@ -34,7 +34,7 @@ def power_method(G, tol=1e-4, m=0.15):
     i = 0
 
     while norm_diff > tol:
-        x_prev = np.copy(x)
+        x_prev = x
         x = np.zeros(num_links)
 
         # in_links is used to reference the output position of the sparse dot
