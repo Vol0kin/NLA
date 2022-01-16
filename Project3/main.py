@@ -6,3 +6,7 @@ x, order, i, time = page_rank.power_method(G)
 
 print(order)
 print(x[order])
+
+x, order, i, time = page_rank.power_method_no_matrix(G)
+print(order)
+print(x[order])
