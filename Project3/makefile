@@ -14,4 +14,4 @@ clean:
 	rm -f $(FILES)
 
 zip:
-	tar cvfz project2.tar.gz report.pdf lsp.py image_compression.py pca.py *.jpeg
+	tar cvfz project3.tar.gz report.pdf *.py 
