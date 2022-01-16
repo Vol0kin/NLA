@@ -35,10 +35,7 @@ def power_method(G, tol=1e-4, m=0.15):
         x_prev = x
         x = np.zeros(num_links)
 
-        # in_links is used to reference the output position of the sparse dot
-        # product between the matrix and the PR vector in the current iteration.
-        # out_links is used to acces the particular values of the PR vector that
-        # take part in the sparse dot product.
+        # Update values of the linked pages
         for k in range(len(values)):
             x[in_links[k]] += values[k] * x_prev[out_links[k]]
 
