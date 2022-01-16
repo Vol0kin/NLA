@@ -87,8 +87,8 @@ def power_method_no_matrix(G, tol=1e-4, m=0.15):
                 x[links[j]] += x_prev[j] / n[j]
 
         x = (1 - m)  * x + m / num_links
-
         norm_diff = np.linalg.norm(x - x_prev, ord=np.inf)
+
         i += 1
 
     order = np.argsort(x)[::-1]
